@@ -1,7 +1,7 @@
 {
   "id": "time-blocks",
   "name": "时间块",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "0.15.0",
   "description": "48时间块日程管理，可视化管理您的一天",
   "author": "Time Blocks",
