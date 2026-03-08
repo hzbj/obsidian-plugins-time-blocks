@@ -1,4 +1,4 @@
-import type { TimeBlockCategory, TimeBlocksData, PluginSettings } from './types';
+import type { TimeBlockCategory, TimeBlocksData, TimeBlocksSyncData, LocalSettings, PluginSettings } from './types';
 
 export const DEFAULT_SETTINGS: PluginSettings = {
     blockHeight: 20,
@@ -15,6 +15,19 @@ export const DEFAULT_DATA: TimeBlocksData = {
     categories: [...DEFAULT_CATEGORIES],
     settings: { ...DEFAULT_SETTINGS },
 };
+
+export const DEFAULT_SYNC_DATA: TimeBlocksSyncData = {
+    version: 1,
+    records: {},
+    categories: [...DEFAULT_CATEGORIES],
+};
+
+export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
+    settings: { ...DEFAULT_SETTINGS },
+    migrated: false,
+};
+
+export const VAULT_DATA_FILE = 'time-blocks-data.json';
 
 export const BLOCKS_PER_DAY = 48;
 export const BLOCKS_PER_ROW = 4;

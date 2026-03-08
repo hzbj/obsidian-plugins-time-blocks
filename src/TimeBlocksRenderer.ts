@@ -69,7 +69,12 @@ export class TimeBlocksRenderer {
 
     private renderGrid(container: HTMLElement, date: string): void {
         const record = this.plugin.dataManager.getOrCreateRecord(date);
-        const grid = container.createDiv({ cls: 'tb-grid' });
+        const grid = this.createGridElement(container, record);
+        container.appendChild(grid);
+    }
+
+    private createGridElement(container: HTMLElement, record: { blocks: (string | null)[] }): HTMLElement {
+        const grid = createDiv({ cls: 'tb-grid' });
 
         for (let row = 0; row < ROWS_COUNT; row++) {
             const rowEl = grid.createDiv({ cls: 'tb-row' });
@@ -101,16 +106,23 @@ export class TimeBlocksRenderer {
                 block.title = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')} - ${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
             }
         }
+        return grid;
     }
 
     private renderLegend(container: HTMLElement): void {
-        const legend = container.createDiv({ cls: 'tb-legend' });
+        const legend = this.createLegendElement(container);
+        container.appendChild(legend);
+    }
+
+    private createLegendElement(container: HTMLElement): HTMLElement {
+        const legend = createDiv({ cls: 'tb-legend' });
         for (const cat of this.plugin.data.categories) {
             const item = legend.createSpan({ cls: 'tb-legend-item' });
             const dot = item.createSpan({ cls: 'tb-color-dot' });
             dot.style.backgroundColor = cat.color;
             item.createSpan({ text: cat.name });
         }
+        return legend;
     }
 
     private renderActions(container: HTMLElement, ctx?: MarkdownPostProcessorContext): void {
@@ -146,14 +158,25 @@ export class TimeBlocksRenderer {
 
     private refreshGrid(container: HTMLElement): void {
         const date = container.dataset.date || this.getTodayString();
-        // Remove old grid and legend, re-render
         const oldGrid = container.querySelector('.tb-grid');
         const oldLegend = container.querySelector('.tb-legend');
+        // 记住插入位置：在 .tb-actions 之前
+        const actions = container.querySelector('.tb-actions');
         if (oldGrid) oldGrid.remove();
         if (oldLegend) oldLegend.remove();
 
-        this.renderGrid(container, date);
-        this.renderLegend(container);
+        // 重新创建 grid 和 legend，插入到 actions 之前以保持顺序
+        const record = this.plugin.dataManager.getOrCreateRecord(date);
+        const grid = this.createGridElement(container, record);
+        const legend = this.createLegendElement(container);
+
+        if (actions) {
+            container.insertBefore(grid, actions);
+            container.insertBefore(legend, actions);
+        } else {
+            container.appendChild(grid);
+            container.appendChild(legend);
+        }
 
         // Re-bind interactions
         const categoryMenu = new CategoryMenu(container, this.plugin, () => {

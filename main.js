@@ -38,6 +38,16 @@ var DEFAULT_DATA = {
   categories: [...DEFAULT_CATEGORIES],
   settings: { ...DEFAULT_SETTINGS }
 };
+var DEFAULT_SYNC_DATA = {
+  version: 1,
+  records: {},
+  categories: [...DEFAULT_CATEGORIES]
+};
+var DEFAULT_LOCAL_SETTINGS = {
+  settings: { ...DEFAULT_SETTINGS },
+  migrated: false
+};
+var VAULT_DATA_FILE = "time-blocks-data.json";
 var BLOCKS_PER_DAY = 48;
 var BLOCKS_PER_ROW = 4;
 var ROWS_COUNT = 12;
@@ -413,7 +423,11 @@ var TimeBlocksRenderer = class {
   }
   renderGrid(container, date) {
     const record = this.plugin.dataManager.getOrCreateRecord(date);
-    const grid = container.createDiv({ cls: "tb-grid" });
+    const grid = this.createGridElement(container, record);
+    container.appendChild(grid);
+  }
+  createGridElement(container, record) {
+    const grid = createDiv({ cls: "tb-grid" });
     for (let row = 0; row < ROWS_COUNT; row++) {
       const rowEl = grid.createDiv({ cls: "tb-row" });
       const hour = row * 2;
@@ -440,15 +454,21 @@ var TimeBlocksRenderer = class {
         block.title = `${String(startHour).padStart(2, "0")}:${String(startMin).padStart(2, "0")} - ${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
       }
     }
+    return grid;
   }
   renderLegend(container) {
-    const legend = container.createDiv({ cls: "tb-legend" });
+    const legend = this.createLegendElement(container);
+    container.appendChild(legend);
+  }
+  createLegendElement(container) {
+    const legend = createDiv({ cls: "tb-legend" });
     for (const cat of this.plugin.data.categories) {
       const item = legend.createSpan({ cls: "tb-legend-item" });
       const dot = item.createSpan({ cls: "tb-color-dot" });
       dot.style.backgroundColor = cat.color;
       item.createSpan({ text: cat.name });
     }
+    return legend;
   }
   renderActions(container, ctx) {
     const actions = container.createDiv({ cls: "tb-actions" });
@@ -482,12 +502,21 @@ var TimeBlocksRenderer = class {
     const date = container.dataset.date || this.getTodayString();
     const oldGrid = container.querySelector(".tb-grid");
     const oldLegend = container.querySelector(".tb-legend");
+    const actions = container.querySelector(".tb-actions");
     if (oldGrid)
       oldGrid.remove();
     if (oldLegend)
       oldLegend.remove();
-    this.renderGrid(container, date);
-    this.renderLegend(container);
+    const record = this.plugin.dataManager.getOrCreateRecord(date);
+    const grid = this.createGridElement(container, record);
+    const legend = this.createLegendElement(container);
+    if (actions) {
+      container.insertBefore(grid, actions);
+      container.insertBefore(legend, actions);
+    } else {
+      container.appendChild(grid);
+      container.appendChild(legend);
+    }
     const categoryMenu = new CategoryMenu(container, this.plugin, () => {
       this.refreshGrid(container);
     });
@@ -783,6 +812,8 @@ var TimeBlocksPlugin = class extends import_obsidian2.Plugin {
     this.dataManager = new DataManager(this);
     this.renderer = new TimeBlocksRenderer(this);
     this.chartRenderer = new ChartRenderer(this);
+    this.syncData = { ...DEFAULT_SYNC_DATA, records: {}, categories: [...DEFAULT_CATEGORIES] };
+    this.localSettings = { ...DEFAULT_LOCAL_SETTINGS, settings: { ...DEFAULT_SETTINGS } };
   }
   async onload() {
     await this.loadPluginData();
@@ -809,23 +840,103 @@ var TimeBlocksPlugin = class extends import_obsidian2.Plugin {
     });
   }
   async loadPluginData() {
-    var _a, _b;
+    var _a;
     const saved = await this.loadData();
+    let oldRecords = null;
+    let oldCategories = null;
     if (saved) {
-      this.data = {
-        records: (_a = saved.records) != null ? _a : {},
-        categories: (_b = saved.categories) != null ? _b : [...DEFAULT_DATA.categories],
-        settings: { ...DEFAULT_SETTINGS, ...saved.settings }
+      this.localSettings = {
+        settings: { ...DEFAULT_SETTINGS, ...saved.settings },
+        migrated: (_a = saved.migrated) != null ? _a : false
       };
+      if (saved.records && Object.keys(saved.records).length > 0) {
+        oldRecords = saved.records;
+      }
+      if (saved.categories && saved.categories.length > 0) {
+        oldCategories = saved.categories;
+      }
     } else {
-      this.data = {
-        records: {},
-        categories: [...DEFAULT_DATA.categories],
-        settings: { ...DEFAULT_SETTINGS }
+      this.localSettings = {
+        settings: { ...DEFAULT_SETTINGS },
+        migrated: false
       };
     }
+    await this.loadSyncData();
+    if (!this.localSettings.migrated && (oldRecords || oldCategories)) {
+      await this.migrateData(oldRecords, oldCategories);
+    }
+    if (!this.localSettings.migrated && !oldRecords && !oldCategories) {
+      this.localSettings.migrated = true;
+      await this.saveLocalSettings();
+    }
+    this.assembleData();
+  }
+  async loadSyncData() {
+    var _a, _b, _c;
+    try {
+      const exists = await this.app.vault.adapter.exists(VAULT_DATA_FILE);
+      if (exists) {
+        const raw = await this.app.vault.adapter.read(VAULT_DATA_FILE);
+        const parsed = JSON.parse(raw);
+        this.syncData = {
+          version: (_a = parsed.version) != null ? _a : 1,
+          records: (_b = parsed.records) != null ? _b : {},
+          categories: (_c = parsed.categories) != null ? _c : [...DEFAULT_CATEGORIES]
+        };
+        return;
+      }
+    } catch (e) {
+      console.error("[time-blocks] Failed to load vault data file:", e);
+    }
+    this.syncData = {
+      version: 1,
+      records: {},
+      categories: [...DEFAULT_CATEGORIES]
+    };
+  }
+  async migrateData(oldRecords, oldCategories) {
+    console.log("[time-blocks] Migrating data from .obsidian/ to vault file...");
+    if (oldRecords) {
+      for (const [date, record] of Object.entries(oldRecords)) {
+        if (!this.syncData.records[date]) {
+          this.syncData.records[date] = record;
+        }
+      }
+    }
+    if (oldCategories) {
+      const existingIds = new Set(this.syncData.categories.map((c) => c.id));
+      for (const cat of oldCategories) {
+        if (!existingIds.has(cat.id)) {
+          this.syncData.categories.push(cat);
+        }
+      }
+    }
+    await this.saveSyncData();
+    this.localSettings.migrated = true;
+    await this.saveLocalSettings();
+    console.log("[time-blocks] Migration completed.");
+  }
+  assembleData() {
+    this.data = {
+      records: this.syncData.records,
+      categories: this.syncData.categories,
+      settings: this.localSettings.settings
+    };
+  }
+  async saveLocalSettings() {
+    await this.saveData({
+      settings: this.localSettings.settings,
+      migrated: this.localSettings.migrated
+    });
+  }
+  async saveSyncData() {
+    const json = JSON.stringify(this.syncData, null, 2);
+    await this.app.vault.adapter.write(VAULT_DATA_FILE, json);
   }
   async savePluginData() {
-    await this.saveData(this.data);
+    await Promise.all([
+      this.saveLocalSettings(),
+      this.saveSyncData()
+    ]);
   }
 };

@@ -19,6 +19,17 @@ export interface PluginSettings {
     blockHeight: number;
 }
 
+export interface TimeBlocksSyncData {
+    version: number;
+    records: Record<string, DayRecord>;
+    categories: TimeBlockCategory[];
+}
+
+export interface LocalSettings {
+    settings: PluginSettings;
+    migrated: boolean;
+}
+
 export interface SelectionState {
     isSelecting: boolean;
     startIndex: number;
