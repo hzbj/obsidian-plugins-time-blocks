@@ -372,6 +372,7 @@ var CategoryMenu = class {
 // src/TimeBlocksRenderer.ts
 var TimeBlocksRenderer = class {
   constructor(plugin) {
+    this.timeIndicatorTimers = /* @__PURE__ */ new Map();
     this.plugin = plugin;
   }
   process(source, el, ctx) {
@@ -381,12 +382,17 @@ var TimeBlocksRenderer = class {
     this.renderFull(container, initialDate, ctx);
   }
   renderFull(container, date, ctx) {
+    this.clearTimeIndicatorTimer(container);
     container.empty();
     container.dataset.date = date;
     this.renderHeader(container, date, ctx);
     this.renderGrid(container, date);
     this.renderLegend(container);
     this.renderActions(container, ctx);
+    const grid = container.querySelector(".tb-grid");
+    if (grid) {
+      this.setupTimeIndicator(container, grid, date);
+    }
     const categoryMenu = new CategoryMenu(container, this.plugin, () => {
       this.refreshGrid(container);
     });
@@ -499,6 +505,7 @@ var TimeBlocksRenderer = class {
     });
   }
   refreshGrid(container) {
+    this.clearTimeIndicatorTimer(container);
     const date = container.dataset.date || this.getTodayString();
     const oldGrid = container.querySelector(".tb-grid");
     const oldLegend = container.querySelector(".tb-legend");
@@ -517,12 +524,54 @@ var TimeBlocksRenderer = class {
       container.appendChild(grid);
       container.appendChild(legend);
     }
+    this.setupTimeIndicator(container, grid, date);
     const categoryMenu = new CategoryMenu(container, this.plugin, () => {
       this.refreshGrid(container);
     });
     new SelectionManager(container, (indices) => {
       categoryMenu.show(container, indices);
     });
+  }
+  clearTimeIndicatorTimer(container) {
+    const timer = this.timeIndicatorTimers.get(container);
+    if (timer !== void 0) {
+      window.clearInterval(timer);
+      this.timeIndicatorTimers.delete(container);
+    }
+  }
+  setupTimeIndicator(container, grid, date) {
+    if (date !== this.getTodayString())
+      return;
+    this.updateTimeIndicator(grid);
+    const timer = window.setInterval(() => {
+      if (!grid.isConnected) {
+        this.clearTimeIndicatorTimer(container);
+        return;
+      }
+      if (container.dataset.date !== this.getTodayString()) {
+        this.clearTimeIndicatorTimer(container);
+        return;
+      }
+      this.updateTimeIndicator(grid);
+    }, 6e4);
+    this.timeIndicatorTimers.set(container, timer);
+    this.plugin.registerInterval(timer);
+  }
+  updateTimeIndicator(grid) {
+    let indicator = grid.querySelector(".tb-time-indicator");
+    if (!indicator) {
+      indicator = createDiv({ cls: "tb-time-indicator" });
+      grid.appendChild(indicator);
+    }
+    const now = /* @__PURE__ */ new Date();
+    const totalMinutes = now.getHours() * 60 + now.getMinutes();
+    const blockHeight = this.plugin.data.settings.blockHeight;
+    const gap = 4;
+    const rowIndex = Math.floor(totalMinutes / 120);
+    const minutesIntoRow = totalMinutes % 120;
+    const fractionInRow = minutesIntoRow / 120;
+    const y = rowIndex * (blockHeight + gap) + fractionInRow * blockHeight;
+    indicator.style.top = `${y}px`;
   }
   parseDate(source) {
     const trimmed = source.trim();

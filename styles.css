@@ -51,6 +51,7 @@
     gap: var(--tb-gap);
     user-select: none;
     -webkit-user-select: none;
+    position: relative;
 }
 
 .tb-row {
@@ -95,6 +96,28 @@
 
 .tb-block.tb-filled {
     box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* ========== Time Indicator ========== */
+.tb-time-indicator {
+    position: absolute;
+    left: 54px;
+    right: 0;
+    height: 2px;
+    background: #e74c3c;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.tb-time-indicator::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e74c3c;
 }
 
 /* ========== Category Menu ========== */

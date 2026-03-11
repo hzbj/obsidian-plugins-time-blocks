@@ -6,6 +6,7 @@ import { CategoryMenu } from './CategoryMenu';
 
 export class TimeBlocksRenderer {
     private plugin: TimeBlocksPlugin;
+    private timeIndicatorTimers = new Map<HTMLElement, number>();
 
     constructor(plugin: TimeBlocksPlugin) {
         this.plugin = plugin;
@@ -19,6 +20,7 @@ export class TimeBlocksRenderer {
     }
 
     private renderFull(container: HTMLElement, date: string, ctx?: MarkdownPostProcessorContext): void {
+        this.clearTimeIndicatorTimer(container);
         container.empty();
         container.dataset.date = date;
 
@@ -26,6 +28,11 @@ export class TimeBlocksRenderer {
         this.renderGrid(container, date);
         this.renderLegend(container);
         this.renderActions(container, ctx);
+
+        const grid = container.querySelector('.tb-grid') as HTMLElement;
+        if (grid) {
+            this.setupTimeIndicator(container, grid, date);
+        }
 
         const categoryMenu = new CategoryMenu(container, this.plugin, () => {
             this.refreshGrid(container);
@@ -157,6 +164,7 @@ export class TimeBlocksRenderer {
     }
 
     private refreshGrid(container: HTMLElement): void {
+        this.clearTimeIndicatorTimer(container);
         const date = container.dataset.date || this.getTodayString();
         const oldGrid = container.querySelector('.tb-grid');
         const oldLegend = container.querySelector('.tb-legend');
@@ -178,6 +186,8 @@ export class TimeBlocksRenderer {
             container.appendChild(legend);
         }
 
+        this.setupTimeIndicator(container, grid, date);
+
         // Re-bind interactions
         const categoryMenu = new CategoryMenu(container, this.plugin, () => {
             this.refreshGrid(container);
@@ -185,6 +195,54 @@ export class TimeBlocksRenderer {
         new SelectionManager(container, (indices: Set<number>) => {
             categoryMenu.show(container, indices);
         });
+    }
+
+    private clearTimeIndicatorTimer(container: HTMLElement): void {
+        const timer = this.timeIndicatorTimers.get(container);
+        if (timer !== undefined) {
+            window.clearInterval(timer);
+            this.timeIndicatorTimers.delete(container);
+        }
+    }
+
+    private setupTimeIndicator(container: HTMLElement, grid: HTMLElement, date: string): void {
+        if (date !== this.getTodayString()) return;
+
+        this.updateTimeIndicator(grid);
+
+        const timer = window.setInterval(() => {
+            if (!grid.isConnected) {
+                this.clearTimeIndicatorTimer(container);
+                return;
+            }
+            if (container.dataset.date !== this.getTodayString()) {
+                this.clearTimeIndicatorTimer(container);
+                return;
+            }
+            this.updateTimeIndicator(grid);
+        }, 60000);
+
+        this.timeIndicatorTimers.set(container, timer);
+        this.plugin.registerInterval(timer);
+    }
+
+    private updateTimeIndicator(grid: HTMLElement): void {
+        let indicator = grid.querySelector('.tb-time-indicator') as HTMLElement;
+        if (!indicator) {
+            indicator = createDiv({ cls: 'tb-time-indicator' });
+            grid.appendChild(indicator);
+        }
+
+        const now = new Date();
+        const totalMinutes = now.getHours() * 60 + now.getMinutes();
+        const blockHeight = this.plugin.data.settings.blockHeight;
+        const gap = 4; // matches --tb-gap
+        const rowIndex = Math.floor(totalMinutes / 120);
+        const minutesIntoRow = totalMinutes % 120;
+        const fractionInRow = minutesIntoRow / 120;
+        const y = rowIndex * (blockHeight + gap) + fractionInRow * blockHeight;
+
+        indicator.style.top = `${y}px`;
     }
 
     private parseDate(source: string): string | null {
