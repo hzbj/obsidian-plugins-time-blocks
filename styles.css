@@ -51,7 +51,6 @@
     gap: var(--tb-gap);
     user-select: none;
     -webkit-user-select: none;
-    position: relative;
 }
 
 .tb-row {
@@ -101,9 +100,9 @@
 /* ========== Time Indicator ========== */
 .tb-time-indicator {
     position: absolute;
-    left: 54px;
-    right: 0;
-    height: 2px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
     background: #e74c3c;
     z-index: 5;
     pointer-events: none;
@@ -112,7 +111,7 @@
 .tb-time-indicator::before {
     content: '';
     position: absolute;
-    left: -4px;
+    left: -3px;
     top: -3px;
     width: 8px;
     height: 8px;

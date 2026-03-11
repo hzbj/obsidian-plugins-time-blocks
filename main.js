@@ -558,20 +558,20 @@ var TimeBlocksRenderer = class {
     this.plugin.registerInterval(timer);
   }
   updateTimeIndicator(grid) {
-    let indicator = grid.querySelector(".tb-time-indicator");
-    if (!indicator) {
-      indicator = createDiv({ cls: "tb-time-indicator" });
-      grid.appendChild(indicator);
-    }
+    const old = grid.querySelector(".tb-time-indicator");
+    if (old)
+      old.remove();
     const now = /* @__PURE__ */ new Date();
     const totalMinutes = now.getHours() * 60 + now.getMinutes();
-    const blockHeight = this.plugin.data.settings.blockHeight;
-    const gap = 4;
-    const rowIndex = Math.floor(totalMinutes / 120);
-    const minutesIntoRow = totalMinutes % 120;
-    const fractionInRow = minutesIntoRow / 120;
-    const y = rowIndex * (blockHeight + gap) + fractionInRow * blockHeight;
-    indicator.style.top = `${y}px`;
+    const blockIndex = Math.floor(totalMinutes / 30);
+    const minutesInBlock = totalMinutes % 30;
+    const fraction = minutesInBlock / 30;
+    const block = grid.querySelector(`.tb-block[data-index="${blockIndex}"]`);
+    if (!block)
+      return;
+    const indicator = createDiv({ cls: "tb-time-indicator" });
+    indicator.style.left = `${fraction * 100}%`;
+    block.appendChild(indicator);
   }
   parseDate(source) {
     const trimmed = source.trim();

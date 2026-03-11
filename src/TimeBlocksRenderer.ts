@@ -227,22 +227,22 @@ export class TimeBlocksRenderer {
     }
 
     private updateTimeIndicator(grid: HTMLElement): void {
-        let indicator = grid.querySelector('.tb-time-indicator') as HTMLElement;
-        if (!indicator) {
-            indicator = createDiv({ cls: 'tb-time-indicator' });
-            grid.appendChild(indicator);
-        }
+        // 移除旧的指示线
+        const old = grid.querySelector('.tb-time-indicator');
+        if (old) old.remove();
 
         const now = new Date();
         const totalMinutes = now.getHours() * 60 + now.getMinutes();
-        const blockHeight = this.plugin.data.settings.blockHeight;
-        const gap = 4; // matches --tb-gap
-        const rowIndex = Math.floor(totalMinutes / 120);
-        const minutesIntoRow = totalMinutes % 120;
-        const fractionInRow = minutesIntoRow / 120;
-        const y = rowIndex * (blockHeight + gap) + fractionInRow * blockHeight;
+        const blockIndex = Math.floor(totalMinutes / 30);
+        const minutesInBlock = totalMinutes % 30;
+        const fraction = minutesInBlock / 30;
 
-        indicator.style.top = `${y}px`;
+        const block = grid.querySelector(`.tb-block[data-index="${blockIndex}"]`) as HTMLElement;
+        if (!block) return;
+
+        const indicator = createDiv({ cls: 'tb-time-indicator' });
+        indicator.style.left = `${fraction * 100}%`;
+        block.appendChild(indicator);
     }
 
     private parseDate(source: string): string | null {
