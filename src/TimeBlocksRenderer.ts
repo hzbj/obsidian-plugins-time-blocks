@@ -90,42 +90,41 @@ export class TimeBlocksRenderer {
 
     private createGridElement(container: HTMLElement, record: { blocks: (string | null)[] }): HTMLElement {
         const grid = createDiv({ cls: 'tb-grid' });
+        const HOURS_PER_COLUMN = 12;
+        const BLOCKS_PER_HOUR = 2;
 
-        for (let row = 0; row < ROWS_COUNT; row++) {
-            const rowEl = grid.createDiv({ cls: 'tb-row' });
-            const hour = row * 2;
-            const label = `${String(hour).padStart(2, '0')}:00`;
-            rowEl.createSpan({ cls: 'tb-time-label', text: label });
+        for (let col = 0; col < 2; col++) {
+            const column = grid.createDiv({ cls: 'tb-grid-column' });
+            const startHour = col * HOURS_PER_COLUMN;
 
-            for (let col = 0; col < BLOCKS_PER_ROW; col++) {
-                const index = row * BLOCKS_PER_ROW + col;
+            for (let h = 0; h < HOURS_PER_COLUMN; h++) {
+                const hour = startHour + h;
+                const rowEl = column.createDiv({ cls: 'tb-row' });
+                const label = `${String(hour).padStart(2, '0')}:00`;
+                rowEl.createSpan({ cls: 'tb-time-label', text: label });
 
-                // 在第 2 和第 3 个块之间插入中间时间标签
-                if (col === 2) {
-                    const midLabel = `${String(hour + 1).padStart(2, '0')}:00`;
-                    rowEl.createSpan({ cls: 'tb-time-label tb-time-label-mid', text: midLabel });
-                }
+                for (let b = 0; b < BLOCKS_PER_HOUR; b++) {
+                    const index = hour * BLOCKS_PER_HOUR + b;
+                    const block = rowEl.createDiv({ cls: 'tb-block' });
+                    block.dataset.index = String(index);
 
-                const block = rowEl.createDiv({ cls: 'tb-block' });
-                block.dataset.index = String(index);
-
-                const catId = record.blocks[index];
-                if (catId) {
-                    const color = this.plugin.dataManager.getCategoryColor(catId);
-                    if (color) {
-                        block.style.backgroundColor = color;
-                        block.dataset.category = catId;
-                        block.classList.add('tb-filled');
+                    const catId = record.blocks[index];
+                    if (catId) {
+                        const color = this.plugin.dataManager.getCategoryColor(catId);
+                        if (color) {
+                            block.style.backgroundColor = color;
+                            block.dataset.category = catId;
+                            block.classList.add('tb-filled');
+                        }
                     }
-                }
 
-                // Tooltip: 显示时间范围
-                const startHour = Math.floor(index / 2);
-                const startMin = (index % 2) * 30;
-                const endIndex = index + 1;
-                const endHour = Math.floor(endIndex / 2);
-                const endMin = (endIndex % 2) * 30;
-                block.title = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')} - ${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+                    // Tooltip: 显示时间范围
+                    const startMin = (index % 2) * 30;
+                    const endIndex = index + 1;
+                    const endHour = Math.floor(endIndex / 2);
+                    const endMin = (endIndex % 2) * 30;
+                    block.title = `${String(hour).padStart(2, '0')}:${String(startMin).padStart(2, '0')} - ${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+                }
             }
         }
         return grid;

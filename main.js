@@ -50,8 +50,6 @@ var DEFAULT_LOCAL_SETTINGS = {
 };
 var VAULT_DATA_FILE = "time-blocks-data.json";
 var BLOCKS_PER_DAY = 48;
-var BLOCKS_PER_ROW = 4;
-var ROWS_COUNT = 12;
 
 // src/DataManager.ts
 var DataManager = class {
@@ -442,34 +440,35 @@ var TimeBlocksRenderer = class {
   }
   createGridElement(container, record) {
     const grid = createDiv({ cls: "tb-grid" });
-    for (let row = 0; row < ROWS_COUNT; row++) {
-      const rowEl = grid.createDiv({ cls: "tb-row" });
-      const hour = row * 2;
-      const label = `${String(hour).padStart(2, "0")}:00`;
-      rowEl.createSpan({ cls: "tb-time-label", text: label });
-      for (let col = 0; col < BLOCKS_PER_ROW; col++) {
-        const index = row * BLOCKS_PER_ROW + col;
-        if (col === 2) {
-          const midLabel = `${String(hour + 1).padStart(2, "0")}:00`;
-          rowEl.createSpan({ cls: "tb-time-label tb-time-label-mid", text: midLabel });
-        }
-        const block = rowEl.createDiv({ cls: "tb-block" });
-        block.dataset.index = String(index);
-        const catId = record.blocks[index];
-        if (catId) {
-          const color = this.plugin.dataManager.getCategoryColor(catId);
-          if (color) {
-            block.style.backgroundColor = color;
-            block.dataset.category = catId;
-            block.classList.add("tb-filled");
+    const HOURS_PER_COLUMN = 12;
+    const BLOCKS_PER_HOUR = 2;
+    for (let col = 0; col < 2; col++) {
+      const column = grid.createDiv({ cls: "tb-grid-column" });
+      const startHour = col * HOURS_PER_COLUMN;
+      for (let h = 0; h < HOURS_PER_COLUMN; h++) {
+        const hour = startHour + h;
+        const rowEl = column.createDiv({ cls: "tb-row" });
+        const label = `${String(hour).padStart(2, "0")}:00`;
+        rowEl.createSpan({ cls: "tb-time-label", text: label });
+        for (let b = 0; b < BLOCKS_PER_HOUR; b++) {
+          const index = hour * BLOCKS_PER_HOUR + b;
+          const block = rowEl.createDiv({ cls: "tb-block" });
+          block.dataset.index = String(index);
+          const catId = record.blocks[index];
+          if (catId) {
+            const color = this.plugin.dataManager.getCategoryColor(catId);
+            if (color) {
+              block.style.backgroundColor = color;
+              block.dataset.category = catId;
+              block.classList.add("tb-filled");
+            }
           }
+          const startMin = index % 2 * 30;
+          const endIndex = index + 1;
+          const endHour = Math.floor(endIndex / 2);
+          const endMin = endIndex % 2 * 30;
+          block.title = `${String(hour).padStart(2, "0")}:${String(startMin).padStart(2, "0")} - ${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
         }
-        const startHour = Math.floor(index / 2);
-        const startMin = index % 2 * 30;
-        const endIndex = index + 1;
-        const endHour = Math.floor(endIndex / 2);
-        const endMin = endIndex % 2 * 30;
-        block.title = `${String(startHour).padStart(2, "0")}:${String(startMin).padStart(2, "0")} - ${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
       }
     }
     return grid;
