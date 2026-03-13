@@ -863,6 +863,7 @@ var TimeBlocksPlugin = class extends import_obsidian2.Plugin {
     this.chartRenderer = new ChartRenderer(this);
     this.syncData = { ...DEFAULT_SYNC_DATA, records: {}, categories: [...DEFAULT_CATEGORIES] };
     this.localSettings = { ...DEFAULT_LOCAL_SETTINGS, settings: { ...DEFAULT_SETTINGS } };
+    this.isSaving = false;
   }
   async onload() {
     await this.loadPluginData();
@@ -887,6 +888,13 @@ var TimeBlocksPlugin = class extends import_obsidian2.Plugin {
         }
       }
     });
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        if (file.path === VAULT_DATA_FILE && !this.isSaving) {
+          this.reloadSyncData();
+        }
+      })
+    );
   }
   async loadPluginData() {
     var _a;
@@ -979,8 +987,26 @@ var TimeBlocksPlugin = class extends import_obsidian2.Plugin {
     });
   }
   async saveSyncData() {
-    const json = JSON.stringify(this.syncData, null, 2);
-    await this.app.vault.adapter.write(VAULT_DATA_FILE, json);
+    this.isSaving = true;
+    try {
+      const json = JSON.stringify(this.syncData, null, 2);
+      await this.app.vault.adapter.write(VAULT_DATA_FILE, json);
+    } finally {
+      setTimeout(() => {
+        this.isSaving = false;
+      }, 500);
+    }
+  }
+  async reloadSyncData() {
+    await this.loadSyncData();
+    this.assembleData();
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      var _a, _b;
+      const view = leaf.view;
+      if (view.getViewType() === "markdown") {
+        (_b = (_a = view.previewMode) == null ? void 0 : _a.rerender) == null ? void 0 : _b.call(_a, true);
+      }
+    });
   }
   async savePluginData() {
     await Promise.all([

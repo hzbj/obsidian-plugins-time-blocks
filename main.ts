@@ -14,6 +14,7 @@ export default class TimeBlocksPlugin extends Plugin {
 
     private syncData: TimeBlocksSyncData = { ...DEFAULT_SYNC_DATA, records: {}, categories: [...DEFAULT_CATEGORIES] };
     private localSettings: LocalSettings = { ...DEFAULT_LOCAL_SETTINGS, settings: { ...DEFAULT_SETTINGS } };
+    private isSaving = false;
 
     async onload(): Promise<void> {
         await this.loadPluginData();
@@ -43,6 +44,15 @@ export default class TimeBlocksPlugin extends Plugin {
                 }
             }
         });
+
+        // 监听 vault 文件变化，外部同步修改后自动重新加载数据并刷新视图
+        this.registerEvent(
+            this.app.vault.on('modify', (file) => {
+                if (file.path === VAULT_DATA_FILE && !this.isSaving) {
+                    this.reloadSyncData();
+                }
+            })
+        );
     }
 
     async loadPluginData(): Promise<void> {
@@ -164,8 +174,25 @@ export default class TimeBlocksPlugin extends Plugin {
     }
 
     private async saveSyncData(): Promise<void> {
-        const json = JSON.stringify(this.syncData, null, 2);
-        await this.app.vault.adapter.write(VAULT_DATA_FILE, json);
+        this.isSaving = true;
+        try {
+            const json = JSON.stringify(this.syncData, null, 2);
+            await this.app.vault.adapter.write(VAULT_DATA_FILE, json);
+        } finally {
+            setTimeout(() => { this.isSaving = false; }, 500);
+        }
+    }
+
+    private async reloadSyncData(): Promise<void> {
+        await this.loadSyncData();
+        this.assembleData();
+        // 触发所有已打开的 markdown 视图重新渲染
+        this.app.workspace.iterateAllLeaves((leaf) => {
+            const view = leaf.view;
+            if (view.getViewType() === 'markdown') {
+                (view as any).previewMode?.rerender?.(true);
+            }
+        });
     }
 
     async savePluginData(): Promise<void> {
