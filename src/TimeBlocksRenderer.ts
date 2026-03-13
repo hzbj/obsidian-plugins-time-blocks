@@ -72,6 +72,14 @@ export class TimeBlocksRenderer {
         todayBtn.addEventListener('click', () => {
             this.renderFull(container, this.getTodayString());
         });
+
+        const refreshBtn = header.createEl('button', { cls: 'tb-nav-btn', text: '\u21BB' });
+        refreshBtn.title = '刷新数据';
+        refreshBtn.addEventListener('click', async () => {
+            await this.plugin.reloadSyncData();
+            const curDate = container.dataset.date || this.getTodayString();
+            this.renderFull(container, curDate);
+        });
     }
 
     private renderGrid(container: HTMLElement, date: string): void {
@@ -91,6 +99,13 @@ export class TimeBlocksRenderer {
 
             for (let col = 0; col < BLOCKS_PER_ROW; col++) {
                 const index = row * BLOCKS_PER_ROW + col;
+
+                // 在第 2 和第 3 个块之间插入中间时间标签
+                if (col === 2) {
+                    const midLabel = `${String(hour + 1).padStart(2, '0')}:00`;
+                    rowEl.createSpan({ cls: 'tb-time-label tb-time-label-mid', text: midLabel });
+                }
+
                 const block = rowEl.createDiv({ cls: 'tb-block' });
                 block.dataset.index = String(index);
 

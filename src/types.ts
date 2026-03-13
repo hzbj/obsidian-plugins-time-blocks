@@ -17,6 +17,7 @@ export interface TimeBlocksData {
 
 export interface PluginSettings {
     blockHeight: number;
+    autoRefresh: boolean;
 }
 
 export interface TimeBlocksSyncData {

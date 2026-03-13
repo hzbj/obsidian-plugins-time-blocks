@@ -30,6 +30,18 @@ export class SettingTab extends PluginSettingTab {
                     })
             );
 
+        new Setting(containerEl)
+            .setName('自动刷新')
+            .setDesc('数据文件被外部修改时（如同步、AI写入），自动重新加载并刷新视图')
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.data.settings.autoRefresh)
+                    .onChange(async (value) => {
+                        this.plugin.data.settings.autoRefresh = value;
+                        await this.plugin.savePluginData();
+                    })
+            );
+
         // ===== 类别管理 =====
         containerEl.createEl('h2', { text: '类别管理' });
 

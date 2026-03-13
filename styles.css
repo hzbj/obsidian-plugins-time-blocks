@@ -68,6 +68,12 @@
     padding-right: 4px;
 }
 
+.tb-time-label-mid {
+    width: 40px;
+    text-align: center;
+    padding-right: 0;
+}
+
 .tb-block {
     flex: 1;
     min-width: 24px;

@@ -26,7 +26,8 @@ var import_obsidian2 = require("obsidian");
 
 // src/constants.ts
 var DEFAULT_SETTINGS = {
-  blockHeight: 20
+  blockHeight: 20,
+  autoRefresh: true
 };
 var DEFAULT_CATEGORIES = [
   { id: "work", name: "\u5DE5\u4F5C", color: "#4A90D9" },
@@ -426,6 +427,13 @@ var TimeBlocksRenderer = class {
     todayBtn.addEventListener("click", () => {
       this.renderFull(container, this.getTodayString());
     });
+    const refreshBtn = header.createEl("button", { cls: "tb-nav-btn", text: "\u21BB" });
+    refreshBtn.title = "\u5237\u65B0\u6570\u636E";
+    refreshBtn.addEventListener("click", async () => {
+      await this.plugin.reloadSyncData();
+      const curDate = container.dataset.date || this.getTodayString();
+      this.renderFull(container, curDate);
+    });
   }
   renderGrid(container, date) {
     const record = this.plugin.dataManager.getOrCreateRecord(date);
@@ -441,6 +449,10 @@ var TimeBlocksRenderer = class {
       rowEl.createSpan({ cls: "tb-time-label", text: label });
       for (let col = 0; col < BLOCKS_PER_ROW; col++) {
         const index = row * BLOCKS_PER_ROW + col;
+        if (col === 2) {
+          const midLabel = `${String(hour + 1).padStart(2, "0")}:00`;
+          rowEl.createSpan({ cls: "tb-time-label tb-time-label-mid", text: midLabel });
+        }
         const block = rowEl.createDiv({ cls: "tb-block" });
         block.dataset.index = String(index);
         const catId = record.blocks[index];
@@ -805,6 +817,12 @@ var SettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.savePluginData();
       })
     );
+    new import_obsidian.Setting(containerEl).setName("\u81EA\u52A8\u5237\u65B0").setDesc("\u6570\u636E\u6587\u4EF6\u88AB\u5916\u90E8\u4FEE\u6539\u65F6\uFF08\u5982\u540C\u6B65\u3001AI\u5199\u5165\uFF09\uFF0C\u81EA\u52A8\u91CD\u65B0\u52A0\u8F7D\u5E76\u5237\u65B0\u89C6\u56FE").addToggle(
+      (toggle) => toggle.setValue(this.plugin.data.settings.autoRefresh).onChange(async (value) => {
+        this.plugin.data.settings.autoRefresh = value;
+        await this.plugin.savePluginData();
+      })
+    );
     containerEl.createEl("h2", { text: "\u7C7B\u522B\u7BA1\u7406" });
     this.plugin.data.categories.forEach((cat, index) => {
       const s = new import_obsidian.Setting(containerEl).setName(cat.name).addText(
@@ -890,11 +908,19 @@ var TimeBlocksPlugin = class extends import_obsidian2.Plugin {
     });
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file.path === VAULT_DATA_FILE && !this.isSaving) {
+        if (file.path === VAULT_DATA_FILE && !this.isSaving && this.data.settings.autoRefresh) {
           this.reloadSyncData();
         }
       })
     );
+    this.addCommand({
+      id: "refresh-time-blocks",
+      name: "\u5237\u65B0\u65F6\u95F4\u5757\u6570\u636E",
+      callback: async () => {
+        await this.reloadSyncData();
+        new import_obsidian2.Notice("\u65F6\u95F4\u5757\u6570\u636E\u5DF2\u5237\u65B0");
+      }
+    });
   }
   async loadPluginData() {
     var _a;

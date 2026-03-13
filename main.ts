@@ -1,4 +1,4 @@
-import { Plugin } from 'obsidian';
+import { Notice, Plugin } from 'obsidian';
 import type { TimeBlocksData, TimeBlocksSyncData, LocalSettings } from './src/types';
 import { DEFAULT_DATA, DEFAULT_SETTINGS, DEFAULT_SYNC_DATA, DEFAULT_LOCAL_SETTINGS, DEFAULT_CATEGORIES, VAULT_DATA_FILE } from './src/constants';
 import { DataManager } from './src/DataManager';
@@ -48,11 +48,21 @@ export default class TimeBlocksPlugin extends Plugin {
         // 监听 vault 文件变化，外部同步修改后自动重新加载数据并刷新视图
         this.registerEvent(
             this.app.vault.on('modify', (file) => {
-                if (file.path === VAULT_DATA_FILE && !this.isSaving) {
+                if (file.path === VAULT_DATA_FILE && !this.isSaving && this.data.settings.autoRefresh) {
                     this.reloadSyncData();
                 }
             })
         );
+
+        // 手动刷新命令
+        this.addCommand({
+            id: 'refresh-time-blocks',
+            name: '刷新时间块数据',
+            callback: async () => {
+                await this.reloadSyncData();
+                new Notice('时间块数据已刷新');
+            },
+        });
     }
 
     async loadPluginData(): Promise<void> {
@@ -183,7 +193,7 @@ export default class TimeBlocksPlugin extends Plugin {
         }
     }
 
-    private async reloadSyncData(): Promise<void> {
+    async reloadSyncData(): Promise<void> {
         await this.loadSyncData();
         this.assembleData();
         // 触发所有已打开的 markdown 视图重新渲染

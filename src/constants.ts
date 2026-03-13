@@ -2,6 +2,7 @@ import type { TimeBlockCategory, TimeBlocksData, TimeBlocksSyncData, LocalSettin
 
 export const DEFAULT_SETTINGS: PluginSettings = {
     blockHeight: 20,
+    autoRefresh: true,
 };
 
 export const DEFAULT_CATEGORIES: TimeBlockCategory[] = [
